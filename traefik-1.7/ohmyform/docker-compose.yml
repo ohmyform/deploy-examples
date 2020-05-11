@@ -1,0 +1,93 @@
+## TODO: add a compose examples directory with various deployment options.
+version: "3.4"
+networks:
+  traefik:
+    external: true
+
+services:
+  redis:
+    image: redis
+    networks:
+      - traefik
+    restart: always
+
+  mongo:
+    image: mongo
+#    volumes:
+#      - "./data/mongo:/data"
+    networks:
+      - traefik
+    restart: always
+
+  ohmyform:
+    image: ohmyform/ohmyform
+    #build: .
+    #volumes:
+    #  - ".:/opt/app"
+    environment:
+      CREATE_ADMIN: "TRUE"
+      SOCKET_URL: 'localhost:5000'
+      SOCKET_PORT: "5000"
+      SOCKET_PORT_EXTERN_VISIBLE: "TRUE"
+      MONGODB_URI: mongodb://mongo/ohmyform
+      REDIS_URL: redis://redis
+      MAILER_SMTP_HOST: mail
+      MAILER_SMTP_PORT: 1025
+    # command: grunt dev # override command to have livereloading on file change
+    links:
+      - mongo
+      - redis
+      - mail
+    ports:
+      - "5000:5000"
+    expose:
+      - 5000
+    depends_on:
+      - mongo
+      - redis
+    restart: always
+    networks:
+      - traefik
+    labels:
+      # https://docs.traefik.io/user-guide/docker-and-lets-encrypt/
+      - "traefik.backend=ohmyform"
+      - "traefik.docker.network=traefik"
+      - "traefik.frontend.rule=Host:demo.ohmyform.com"
+      - "traefik.expose=true"
+      - "traefik.port=5000"
+
+  mail:
+    image: mailhog/mailhog
+    ports:
+      - "5050:8025"
+    restart: always
+    networks:
+      - traefik
+    labels:
+      # https://docs.traefik.io/user-guide/docker-and-lets-encrypt/
+      - "traefik.backend=mailhog"
+      - "traefik.docker.network=traefik"
+      - "traefik.frontend.rule=Host:mailhog.demo.ohmyform.com"
+      - "traefik.expose=true"
+      - "traefik.port=8025"
+
+  mongoexpress:
+    image: mongo-express
+    environment:
+      ME_CONFIG_MONGODB_SERVER: mongo
+    ports:
+      - "5051:8081"
+    links:
+      - mongo
+    depends_on:
+      - mongo
+    restart: always
+    networks:
+      - traefik
+    labels:
+      # https://docs.traefik.io/user-guide/docker-and-lets-encrypt/
+      - "traefik.backend=mongoexpress"
+      - "traefik.docker.network=traefik"
+      - "traefik.frontend.rule=Host:mongoexpress.demo.ohmyform.com"
+      - "traefik.expose=true"
+      - "traefik.port=8081"

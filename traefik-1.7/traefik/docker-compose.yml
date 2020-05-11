@@ -1,0 +1,47 @@
+version: '3.4'
+
+networks:
+  traefik:
+    external: true
+
+services:
+#####################
+## Proxy container ##
+#####################
+## One of the major contributing guides here.
+## https://www.digitalocean.com/community/tutorials/how-to-use-traefik-as-a-reverse-proxy-for-docker-containers-on-ubuntu-16-04
+  proxy:
+    image: traefik:alpine
+    command: --api --docker --docker.domain=docker.localhost --logLevel=DEBUG
+    networks:
+      - traefik
+    restart: always
+    ports:
+      - target: 80
+        published: 80
+        mode: host
+      - target: 443
+        published: 443
+        mode: host
+    expose:
+      - 8080
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./traefik.toml:/traefik.toml
+      - ./traefik/:/opt/traefik/
+    labels:
+      # https://docs.traefik.io/user-guide/docker-and-lets-encrypt/
+      - "traefik.backend=proxy"
+      - "traefik.docker.network=traefik"
+      - "traefik.frontend.rule=Host:monitor.demo.ohmyform.com"
+      - "traefik.expose=true"
+      - "traefik.port=8080"
+    healthcheck:
+       test: ["CMD", "traefik", "healthcheck"]
+       timeout: 10s
+       retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "200k"
+        max-file: "10"
